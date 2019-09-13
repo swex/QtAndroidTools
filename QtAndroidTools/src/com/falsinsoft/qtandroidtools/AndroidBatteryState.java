@@ -31,67 +31,63 @@ import android.content.Intent;
 import android.os.BatteryManager;
 import android.content.Context;
 
-public class AndroidBatteryState
-{
+public class AndroidBatteryState {
     private final BatteryStateChangeReceiver mBatteryStateChangeReceiver;
     private final IntentFilter mBatteryStateFilter;
     private final Activity mActivityInstance;
 
     private int mLevel = 0;
     private boolean mOnCharge = false;
+    private boolean mReceiverRegistered = false;
 
-    public AndroidBatteryState(Activity ActivityInstance)
-    {
+    public AndroidBatteryState(Activity ActivityInstance) {
         mBatteryStateChangeReceiver = new BatteryStateChangeReceiver();
         mBatteryStateFilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
         mActivityInstance = ActivityInstance;
     }
 
-    public int getLevel()
-    {
+    public int getLevel() {
         return mLevel;
     }
 
-    public boolean isOnCharge()
-    {
+    public boolean isOnCharge() {
         return mOnCharge;
     }
 
-    public void appStateChanged(int newState)
-    {
-        switch(newState)
-        {
+    public void appStateChanged(int newState) {
+        switch (newState) {
             case APP_STATE_CREATE:
             case APP_STATE_START:
-                mActivityInstance.registerReceiver(mBatteryStateChangeReceiver, mBatteryStateFilter);
+                if (!mReceiverRegistered) {
+                    mActivityInstance.registerReceiver(mBatteryStateChangeReceiver, mBatteryStateFilter);
+                    mReceiverRegistered = true;
+                }
                 break;
             case APP_STATE_STOP:
             case APP_STATE_DESTROY:
-                mActivityInstance.unregisterReceiver(mBatteryStateChangeReceiver);
+                if (mReceiverRegistered) {
+                    mActivityInstance.unregisterReceiver(mBatteryStateChangeReceiver);
+                    mReceiverRegistered = false;
+                }
                 break;
         }
     }
 
-    private class BatteryStateChangeReceiver extends BroadcastReceiver
-    {
+    private class BatteryStateChangeReceiver extends BroadcastReceiver {
         @Override
-        public void onReceive(Context context, Intent intent)
-        {
+        public void onReceive(Context context, Intent intent) {
             final boolean CurrentOnCharge = (intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1) == 0) ? false : true;
             final int Level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
             final int Scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
 
-            if(Level >= 0 && Scale > 0)
-            {
+            if (Level >= 0 && Scale > 0) {
                 final int CurrentLevel = ((Level * 100) / Scale);
-                if(CurrentLevel != mLevel)
-                {
+                if (CurrentLevel != mLevel) {
                     mLevel = CurrentLevel;
                     batteryLevelChanged();
                 }
             }
-            if(CurrentOnCharge != mOnCharge)
-            {
+            if (CurrentOnCharge != mOnCharge) {
                 mOnCharge = CurrentOnCharge;
                 batteryOnChargeChanged();
             }
@@ -104,5 +100,6 @@ public class AndroidBatteryState
     private static final int APP_STATE_DESTROY = 3;
 
     private static native void batteryLevelChanged();
+
     private static native void batteryOnChargeChanged();
 }
